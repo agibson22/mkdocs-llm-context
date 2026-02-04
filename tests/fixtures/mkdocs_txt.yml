@@ -1,0 +1,10 @@
+site_name: Test
+docs_dir: docs
+plugins:
+  - llm-context:
+      output: llm-context.txt
+      format: txt
+
+nav:
+  - Home: index.md
+  - Other: other.md
