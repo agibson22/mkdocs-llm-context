@@ -4,11 +4,13 @@ import fnmatch
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
 from mkdocs.config import config_options as c
 from mkdocs.config.base import Config as MkDocsConfig
 from mkdocs.exceptions import PluginError
 from mkdocs.plugins import BasePlugin
+from mkdocs.structure.pages import Page
 
 log = logging.getLogger("mkdocs.plugins.mkdocs_llm_context")
 
@@ -22,22 +24,22 @@ class LlmContextPluginConfig(MkDocsConfig):
 class LlmContextPlugin(BasePlugin[LlmContextPluginConfig]):
     """Bundle the built MkDocs site into a single file (JSON or TXT) for LLM/agent context."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self._pages: list[dict] = []
+        self._pages: list[dict[str, str]] = []
 
-    def on_pre_build(self, config, **kwargs):
+    def on_pre_build(self, config: MkDocsConfig, **kwargs: Any) -> None:
         """Clear accumulator so mkdocs serve rebuilds don't duplicate."""
         self._pages = []
 
-    def on_post_page(self, output, page, config, **kwargs):
+    def on_post_page(self, output: str, page: Page, config: MkDocsConfig, **kwargs: Any) -> None:
         """Accumulate page source markdown, skipping excluded pages."""
         if any(fnmatch.fnmatch(page.url, pattern) for pattern in self.config.exclude):
             log.debug("Skipping excluded page: %s", page.url)
             return
         self._pages.append({"url": page.url, "title": page.title, "content": page.markdown})
 
-    def on_post_build(self, config, **kwargs):
+    def on_post_build(self, config: MkDocsConfig, **kwargs: Any) -> None:
         """Write accumulated pages to a single output file."""
         site_dir = Path(config["site_dir"])
         out_fmt = self.config.format
