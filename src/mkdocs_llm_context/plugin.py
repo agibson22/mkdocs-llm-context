@@ -1,5 +1,6 @@
 """MkDocs plugin: bundle all pages into one JSON or TXT file for LLM context."""
 
+import fnmatch
 import json
 import logging
 from pathlib import Path
@@ -15,6 +16,7 @@ log = logging.getLogger("mkdocs.plugins.mkdocs_llm_context")
 class LlmContextPluginConfig(MkDocsConfig):
     output = c.Optional(c.Type(str))
     format = c.Choice(("json", "txt"), default="json")
+    exclude = c.Type(list, default=[])
 
 
 class LlmContextPlugin(BasePlugin[LlmContextPluginConfig]):
@@ -29,7 +31,10 @@ class LlmContextPlugin(BasePlugin[LlmContextPluginConfig]):
         self._pages = []
 
     def on_post_page(self, output, page, config, **kwargs):
-        """Accumulate page source markdown."""
+        """Accumulate page source markdown, skipping excluded pages."""
+        if any(fnmatch.fnmatch(page.url, pattern) for pattern in self.config.exclude):
+            log.debug("Skipping excluded page: %s", page.url)
+            return
         self._pages.append({"url": page.url, "title": page.title, "content": page.markdown})
 
     def on_post_build(self, config, **kwargs):

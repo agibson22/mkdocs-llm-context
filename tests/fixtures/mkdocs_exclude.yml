@@ -1,0 +1,10 @@
+site_name: Test
+docs_dir: docs
+plugins:
+  - llm-context:
+      exclude:
+        - other/
+
+nav:
+  - Home: index.md
+  - Other: other.md

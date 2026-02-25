@@ -83,3 +83,13 @@ def test_plugin_txt_format_derives_output_name(tmp_path):
 
     assert (tmp_path / "site_auto" / "llm-context.txt").exists()
     assert not (tmp_path / "site_auto" / "llm-context.json").exists()
+
+
+def test_exclude_option(tmp_path):
+    """Pages matching exclude patterns are omitted from the output."""
+    result = _build(FIXTURES_DIR / "mkdocs_exclude.yml", tmp_path / "site_exclude")
+    assert result.returncode == 0, (result.stdout, result.stderr)
+
+    data = json.loads((tmp_path / "site_exclude" / "llm-context.json").read_text(encoding="utf-8"))
+    assert len(data) == 1, "Only one page should remain after excluding 'other/'"
+    assert data[0]["title"] == "Home"
