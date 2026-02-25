@@ -37,7 +37,8 @@ class LlmContextPlugin(BasePlugin[LlmContextPluginConfig]):
         if any(fnmatch.fnmatch(page.url, pattern) for pattern in self.config.exclude):
             log.debug("Skipping excluded page: %s", page.url)
             return
-        self._pages.append({"url": page.url, "title": page.title, "content": page.markdown})
+        title = page.title or page.url
+        self._pages.append({"url": page.url, "title": title, "content": page.markdown})
 
     def on_post_build(self, config: MkDocsConfig, **kwargs: Any) -> None:
         """Write accumulated pages to a single output file."""

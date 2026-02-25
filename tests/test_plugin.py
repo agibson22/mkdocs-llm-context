@@ -85,6 +85,17 @@ def test_plugin_txt_format_derives_output_name(tmp_path):
     assert not (tmp_path / "site_auto" / "llm-context.json").exists()
 
 
+def test_page_with_no_title(tmp_path):
+    """Pages with no H1 heading fall back to page.url rather than producing null/None."""
+    result = _build(FIXTURES_DIR / "mkdocs_notitle.yml", tmp_path / "site_notitle")
+    assert result.returncode == 0, (result.stdout, result.stderr)
+
+    data = json.loads((tmp_path / "site_notitle" / "llm-context.json").read_text(encoding="utf-8"))
+    titles = {item["title"] for item in data}
+    assert None not in titles, "title should never be null"
+    assert all(isinstance(t, str) and t for t in titles), "all titles should be non-empty strings"
+
+
 def test_exclude_option(tmp_path):
     """Pages matching exclude patterns are omitted from the output."""
     result = _build(FIXTURES_DIR / "mkdocs_exclude.yml", tmp_path / "site_exclude")

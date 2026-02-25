@@ -1,0 +1,8 @@
+site_name: Test
+docs_dir: docs_notitle
+plugins:
+  - llm-context
+
+nav:
+  - Home: index.md
+  - No Title: notitle.md
