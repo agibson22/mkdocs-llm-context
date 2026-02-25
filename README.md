@@ -1,17 +1,15 @@
 # mkdocs-llm-context
 
+[![CI](https://github.com/agibson22/mkdocs-llm-context/actions/workflows/ci.yml/badge.svg)](https://github.com/agibson22/mkdocs-llm-context/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/mkdocs-llm-context)](https://pypi.org/project/mkdocs-llm-context/)
+
 Bundle your MkDocs site into a single file for LLM or agent context.
 
 ## Installation
 
 ```bash
 pip install mkdocs-llm-context
-```
-
-Until the plugin is on PyPI, install from a local path:
-
-```bash
-pip install -e /path/to/mkdocs-llm-context
 ```
 
 ## Usage
@@ -23,38 +21,39 @@ plugins:
   - llm-context
 ```
 
-Optional configuration:
+### Configuration
 
 ```yaml
 plugins:
   - llm-context:
-      output: llm-context.json   # default
-      format: json               # or "txt"
+      format: json        # "json" (default) or "txt"
+      output: llm-context.json  # default derives from format
+      exclude:
+        - changelog/
+        - api/reference/*
 ```
 
-- **output**: Filename written to the site directory (default: `llm-context.json`).
-- **format**: `json` — list of `{url, title, content}`; `txt` — single file with `## Title` and URL per section.
+| Option | Default | Description |
+|--------|---------|-------------|
+| `format` | `json` | Output format: `json` (list of `{url, title, content}`) or `txt` (sections separated by `---`) |
+| `output` | `llm-context.{format}` | Filename written to the site directory |
+| `exclude` | `[]` | Glob patterns matched against `page.url` — matching pages are omitted |
 
 After `mkdocs build`, the file appears in `site/` and can be used as context for an LLM or agent.
 
 ## Development
 
-### Running tests
-
-From the repo root:
-
 ```bash
-pip install -e ".[dev]"
-pytest tests/ -v
+git clone https://github.com/agibson22/mkdocs-llm-context
+cd mkdocs-llm-context
+python -m venv .venv && source .venv/bin/activate
+make install
 ```
 
-Tests run `mkdocs build` against a minimal fixture under `tests/fixtures/` and assert the output file exists with the expected structure.
+```bash
+make test   # run tests
+make lint   # run ruff
+make build  # build the wheel
+```
 
-### Using with another MkDocs site (e.g. Sema)
-
-1. Install the plugin in editable mode: `pip install -e /path/to/mkdocs-llm-context`
-2. Install that site’s docs dependencies (e.g. `pip install -e ".[docs]"` from the other repo).
-3. In the site’s `mkdocs.yml`, add `llm-context` to the `plugins` list.
-4. Run `mkdocs build`; the bundle is written to the site directory.
-
-When the plugin is published to PyPI, you can add `mkdocs-llm-context` to your project’s docs dependencies instead of installing from path.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.

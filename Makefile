@@ -10,8 +10,8 @@ lint:
 	python -m ruff check .
 
 build:
-	pip install hatch --quiet
-	hatch build
+	pip install build --quiet
+	python -m build
 
 clean:
 	rm -rf dist/ .pytest_cache/ src/*.egg-info
