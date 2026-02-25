@@ -4,60 +4,52 @@ import json
 import logging
 from pathlib import Path
 
-import mkdocs.config.config_options as c
-from markdownify import markdownify
-from mkdocs.plugins import BasePlugin
+from mkdocs.config import config_options as c
+from mkdocs.config.base import Config as MkDocsConfig
 from mkdocs.exceptions import PluginError
+from mkdocs.plugins import BasePlugin
 
 log = logging.getLogger("mkdocs.plugins.mkdocs_llm_context")
 
 
-class LlmContextPlugin(BasePlugin):
-    """Bundle the built MkDocs site into a single file (JSON or TXT) for LLM/agent context."""
+class LlmContextPluginConfig(MkDocsConfig):
+    output = c.Optional(c.Type(str))
+    format = c.Choice(("json", "txt"), default="json")
 
-    config_scheme = (
-        ("output", c.Type(str, default="llm-context.json")),
-        ("format", c.Choice(("json", "txt"), default="json")),
-    )
+
+class LlmContextPlugin(BasePlugin[LlmContextPluginConfig]):
+    """Bundle the built MkDocs site into a single file (JSON or TXT) for LLM/agent context."""
 
     def __init__(self):
         super().__init__()
-        self._pages = []
+        self._pages: list[dict] = []
 
     def on_pre_build(self, config, **kwargs):
         """Clear accumulator so mkdocs serve rebuilds don't duplicate."""
         self._pages = []
 
     def on_post_page(self, output, page, config, **kwargs):
-        """Accumulate (url, title, html) for each page."""
-        self._pages.append((page.url, page.title, output))
-        return None
+        """Accumulate page source markdown."""
+        self._pages.append({"url": page.url, "title": page.title, "content": page.markdown})
 
     def on_post_build(self, config, **kwargs):
-        """Convert accumulated HTML to Markdown and write one output file."""
+        """Write accumulated pages to a single output file."""
         site_dir = Path(config["site_dir"])
-        output_name = self.config["output"]
-        out_fmt = self.config["format"]
-
-        records = []
-        for url, title, html in self._pages:
-            try:
-                content = markdownify(html, strip=["script", "style"])
-            except Exception as e:
-                raise PluginError(f"markdownify failed for {url!r}: {e}") from e
-            records.append({"url": url, "title": title, "content": content})
-
+        out_fmt = self.config.format
+        output_name = self.config.output or f"llm-context.{out_fmt}"
         out_path = site_dir / output_name
+
         try:
             if out_fmt == "json":
                 with open(out_path, "w", encoding="utf-8") as f:
-                    json.dump(records, f, indent=2, ensure_ascii=False)
+                    json.dump(self._pages, f, indent=2, ensure_ascii=False)
             else:
-                parts = []
-                for r in records:
-                    parts.append(f"\n\n## {r['title']}\nURL: {r['url']}\n\n{r['content']}\n\n")
+                parts = [
+                    f"## {r['title']}\nURL: {r['url']}\n\n{r['content']}"
+                    for r in self._pages
+                ]
                 with open(out_path, "w", encoding="utf-8") as f:
-                    f.write("\n".join(parts).strip() or "")
-            log.info("Wrote %s (%d pages) to %s", output_name, len(records), out_path)
+                    f.write("\n\n---\n\n".join(parts))
+            log.info("Wrote %s (%d pages) to %s", output_name, len(self._pages), out_path)
         except OSError as e:
             raise PluginError(f"Failed to write {out_path}: {e}") from e

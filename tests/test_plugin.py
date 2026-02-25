@@ -5,37 +5,45 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
 
-def test_plugin_produces_json_output(tmp_path):
-    """Run mkdocs build from fixture; default output is llm-context.json with expected structure."""
-    result = subprocess.run(
-        [sys.executable, "-m", "mkdocs", "build", "--site-dir", str(tmp_path / "site")],
+def _build(config_file: Path, site_dir: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mkdocs",
+            "build",
+            "--config-file",
+            str(config_file),
+            "--site-dir",
+            str(site_dir),
+        ],
         cwd=FIXTURES_DIR,
         capture_output=True,
         text=True,
     )
+
+
+def test_plugin_produces_json_output(tmp_path):
+    """Default output is llm-context.json with expected structure."""
+    result = _build(FIXTURES_DIR / "mkdocs.yml", tmp_path / "site")
     assert result.returncode == 0, (result.stdout, result.stderr)
 
     out_file = tmp_path / "site" / "llm-context.json"
     assert out_file.exists(), f"Expected {out_file} to exist"
 
-    with open(out_file, encoding="utf-8") as f:
-        data = json.load(f)
-
+    data = json.loads(out_file.read_text(encoding="utf-8"))
     assert isinstance(data, list)
-    assert len(data) == 2, "Fixture has two nav pages (index, other)"
+    assert len(data) == 2, "Fixture has two nav pages"
+
     for item in data:
-        assert "url" in item
-        assert "title" in item
-        assert "content" in item
+        assert {"url", "title", "content"} <= item.keys()
         assert isinstance(item["content"], str)
 
     titles = {item["title"] for item in data}
-    assert "Home" in titles  # nav title for index.md
+    assert "Home" in titles
     assert "Other" in titles
 
     contents = " ".join(item["content"] for item in data)
@@ -43,28 +51,35 @@ def test_plugin_produces_json_output(tmp_path):
     assert "More content" in contents
 
 
-def test_plugin_txt_format(tmp_path):
-    """With format: txt, output is a single .txt file with section headers."""
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "mkdocs",
-            "build",
-            "--config-file",
-            str(FIXTURES_DIR / "mkdocs_txt.yml"),
-            "--site-dir",
-            str(tmp_path / "site_txt"),
-        ],
-        cwd=FIXTURES_DIR,
-        capture_output=True,
-        text=True,
-    )
+def test_json_content_is_source_markdown(tmp_path):
+    """Content field contains raw source markdown, not rendered HTML."""
+    result = _build(FIXTURES_DIR / "mkdocs.yml", tmp_path / "site")
+    assert result.returncode == 0, (result.stdout, result.stderr)
+
+    data = json.loads((tmp_path / "site" / "llm-context.json").read_text(encoding="utf-8"))
+    contents = " ".join(item["content"] for item in data)
+    assert "<" not in contents, "Content should be source markdown, not HTML"
+
+
+def test_plugin_txt_format_explicit_output(tmp_path):
+    """With format: txt and explicit output name, file is written correctly."""
+    result = _build(FIXTURES_DIR / "mkdocs_txt.yml", tmp_path / "site_txt")
     assert result.returncode == 0, (result.stdout, result.stderr)
 
     out_file = tmp_path / "site_txt" / "llm-context.txt"
     assert out_file.exists()
     text = out_file.read_text(encoding="utf-8")
-    assert "## Test" in text or "## Other" in text
+    assert "## Home" in text
+    assert "## Other" in text
     assert "Some content" in text
     assert "More content" in text
+    assert "---" in text, "Sections should be separated by ---"
+
+
+def test_plugin_txt_format_derives_output_name(tmp_path):
+    """With format: txt and no output set, filename auto-derives to llm-context.txt."""
+    result = _build(FIXTURES_DIR / "mkdocs_txt_auto.yml", tmp_path / "site_auto")
+    assert result.returncode == 0, (result.stdout, result.stderr)
+
+    assert (tmp_path / "site_auto" / "llm-context.txt").exists()
+    assert not (tmp_path / "site_auto" / "llm-context.json").exists()
